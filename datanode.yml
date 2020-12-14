@@ -1,0 +1,60 @@
+- hosts: datanode
+  vars_prompt:
+  - name: DN_DIR
+    prompt: "enter the datanode directory:"
+    private: no
+  - name: Port_NO
+    prompt: "enter the  port number for hadoopservices:"
+    private: no
+  - name: NN_IP
+    prompt: "enter the namenode ip"
+  tasks:
+  - name: copying jdk  rpm packages
+    copy:
+      dest: "/root"
+      src: "jdk-8u171-linux-x64.rpm"
+  - name: installing jdk rpm
+    yum:
+      name: "/root/jdk-8u171-linux-x64.rpm"
+      state: present
+      disable_gpg_check: True
+  - name: copying hadoop rpm package
+    copy:
+       dest: "/root"
+       src: "hadoop-1.2.1-1.x86_64.rpm"
+  - name: Creating datanode directory
+    file:
+      state: directory
+      path: "/{{ DN_DIR }}"
+  - name:  installing hadoop rpm
+    command: "rpm -ivh hadoop-1.2.1-1.x86_64.rpm --force"
+  - name: Writting Hdfs-file
+    blockinfile:
+        path: /etc/hadoop/hdfs-site.xml
+        insertafter: "<configuration>"
+        block: |
+            <property>
+            <name>dfs.data.dir</name>
+            <value>/{{ DN_DIR }}</value>
+            </property>
+
+  - name: Writting Core-site-file
+    blockinfile:
+        path: /etc/hadoop/core-site.xml
+        insertafter: <configuration>
+        block: |
+          <property>
+          <name>fs.default.name</name>
+          <value>hdfs://{{ NN_IP }}:{{ Port_NO }}</value>
+          </property>
+  - name: starting datanode services
+    command: "hadoop-daemon.sh start datanode"
+  - name: writting in rc.d file for permenant datanode service
+    blockinfile:
+            path: /etc/rc.d/rc.local
+            insertafter: "touch /var/lock/subsys/local"
+            block: |
+                hadoop-daemon.sh start datanode
+  - name: making datanode services permanant
+    command: "chmod +x /etc/rc.d/rc.local"
+ 
