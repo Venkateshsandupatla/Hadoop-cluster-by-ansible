@@ -1,0 +1,65 @@
+- hosts: namenode
+  vars_prompt:
+  - name: NN_DIR
+    prompt: "enter the namenode directory:"
+    private: no
+  - name: Port_NO
+    prompt: "enter the  port number for hadoopservices:"
+    private: no   
+  tasks:
+  - name: copying jdk  rpm packages
+    copy:
+      dest: "/root"
+      src: "jdk-8u171-linux-x64.rpm"
+  - name: installing jdk rpm
+    yum:
+      name: "/root/jdk-8u171-linux-x64.rpm"
+      state: present
+      disable_gpg_check: True
+  - name: copying hadoop rpm package
+    copy: 
+       dest: "/root"
+       src: "hadoop-1.2.1-1.x86_64.rpm"
+  - name: Creating namenode directory 
+    file: 
+      state: directory
+      path: "/{{ NN_DIR }}"
+    register: x
+   
+  - name:  installing hadoop rpm 
+    command: "rpm -ivh hadoop-1.2.1-1.x86_64.rpm --force"
+  - name: Writting Hdfs-file
+    blockinfile:
+        path: /etc/hadoop/hdfs-site.xml
+        insertafter: "<configuration>"
+        block: |
+            <property>
+            <name>dfs.name.dir</name>
+            <value>/{{ NN_DIR }}</value>
+            </property> 
+        
+  - name: Writting Core-site-file
+    blockinfile:
+        path: /etc/hadoop/core-site.xml
+        insertafter: <configuration>
+        block: |
+          <property>
+          <name>fs.default.name</name>
+          <value>hdfs://{{ ansible_facts["default_ipv4"]["address"] }}:{{ Port_NO }}</value>
+          </property>
+  - name: namenode formatting
+    shell: "echo Y | hadoop namenode -format"
+    when: x.changed==true
+  - name: namendode starting
+    command: "hadoop-daemon.sh start namenode"    
+  - name: writting in rc.d file
+    blockinfile:
+            path: /etc/rc.d/rc.local
+            insertafter: "touch /var/lock/subsys/local"
+            block: |
+               hadoop-daemon.sh start namenode
+  - name: making hadooop namenode service permenant
+    command: "chmod +x /etc/rc.d/rc.local"
+  
+  
+
